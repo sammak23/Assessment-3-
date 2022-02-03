@@ -1,0 +1,349 @@
+---
+title: "Assessment 3"
+author: "Cheng Li Mak,Rui Hao Li, Jinze Li"
+date: "02/02/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#install.packages
+library(tidyverse)
+
+#install.packages
+library(knitr)
+
+#install.packages
+library(tidymodels)
+
+#install.randomForest
+library(randomForest)
+
+#install.packages
+library(rpart)
+
+#install.packages
+library(caret)
+
+```
+
+
+#**Executive Summary**
+
+In this project, we have used the concept of machine learning to predict whether a cocktail is alcoholic. A data set has been provided. The data has been cleaned using several techniques such as dealing with missing values, dealing with the data type and relabeling the data. We have visualized the cleaned data using bar chart. The two machine learning model, decision tree and random forest, has been used for prediction. Both models have produced an equal accuracy score (92.07 %).
+
+
+#**Introduction**
+
+Sometimes it is difficult to know whether a cocktail is an alcoholic drink or not. In most cases, we taste the cocktails to try and whether it is alcoholic or not. In a scenario where the cocktail is not labeled, one might find it difficult to know the type of cocktails. However, based on the machine learning concepts, we are able to predict whether a cocktail is alcoholic or not based on its features such as ingredient, density etc. In this project, we will the data provided to predict whether the cocktails is alcoholic. 
+
+
+
+#**Business Problem** 
+
+The data contains 2104 rows and 13 columns. The target variable is alcoholic. Which shows whether the cocktails is alcoholic or not. All the remaining variables will be treated as independent variable. The data was first subset ed by removing the unnecessary variables. Later we converted the variables into their right data type.
+
+The business problem we would like to explore in the report is :
+
+Major question : What Factors determines whether a cocktail is alcoholic?
+
+Sub-question: 
+
+Q1. Which factor best predict whether a cocktail is alcoholic?
+
+Q2. Which combination of factors best predict whether a cocktail is alcoholic?
+
+
+
+#**About the Data  set [Cocktails]**
+
+Machine learning techniques will be used to answer these two questions. The machine learning algorithms that will be used are decision tree and random forest. The data will first be cleaned before the model is created.
+
+**Load the data set**
+
+```{r}
+cocktails <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-05-26/cocktails.csv')
+
+```
+
+```{r}
+summary(cocktails)
+```
+
+
+#**Data Cleansing** 
+
+#Subset the data
+
+```{r}
+my_data= cocktails %>%
+  select(drink,alcoholic,category,glass,ingredient,measure)
+
+```
+
+# Check for the presence of missing values
+
+```{r}
+sum(is.na(my_data))
+
+my_data= na.omit(my_data)
+```
+
+# Check the structure of the data
+
+```{r}
+str(my_data)
+```
+
+# Convert the variables into their right data type
+```{r}
+my_data$drink=as.factor(my_data$drink)
+my_data$category=as.factor(my_data$category)
+my_data$category=as.factor(my_data$category)
+my_data$ingredient=as.factor(my_data$ingredient)
+my_data$measure=as.factor(my_data$measure)
+
+```
+
+# Check the counts of the target variable
+
+```{r}
+table(my_data$alcoholic)
+```
+
+# relabel the factors
+
+```{r}
+my_data <- my_data %>%
+  mutate(category = ifelse(category == "Cocktail", "Cocktail", "Other Drinks"))
+head(my_data)
+my_data <- my_data %>%
+  mutate(alcoholic = ifelse(alcoholic == "Alcoholic", "Alcoholic", "Non_Alcoholic"))
+head(my_data)
+```
+
+# reduce the size of the factors
+
+```{r}
+my_data$glass <- as.character(my_data$glass)
+my_data$ingredient <- as.character(my_data$ingredient)
+my_data$measure <- as.character(my_data$measure)
+my_data$drink <- as.character(my_data$drink)
+
+glass=replace(my_data$glass, ave(my_data$glass, my_data$glass, FUN = length) < 5, "Other")
+ingredient=replace(my_data$ingredient, ave(my_data$ingredient, my_data$ingredient, FUN = length) < 8, "Other")
+measure=replace(my_data$measure, ave(my_data$measure, my_data$measure, FUN = length) < 8, "Other")
+drink=replace(my_data$drink, ave(my_data$drink, my_data$drink, FUN = length) < 8, "Other")
+table(glass)
+table(drink)
+table(measure)
+table(ingredient)
+my_data$glass=glass
+my_data$ingredient=ingredient
+my_data$measure=measure
+my_data$drink=drink
+
+```
+
+#convert the variable into category 
+
+```{r}
+my_data$glass=as.factor(my_data$glass)
+my_data$ingredient=as.factor(my_data$ingredient)
+my_data$measure=as.factor(my_data$measure)
+my_data$drink=as.factor(my_data$drink)
+my_data$alcoholic=as.factor(my_data$alcoholic)
+my_data$category=as.factor(my_data$category)
+my_data$alcoholic=as.factor(my_data$alcoholic)
+
+```
+
+
+#**Descriptive or Exploratory Analysis**
+
+There are 3 type of cocktails which is alcoholic, non-alcoholic and optional alcohol.There are 3 type of categories in the cocktails data set. 
+
+```{r}
+cocktails %>% 
+  count(alcoholic) %>%
+  kable()
+
+```
+
+
+```{r}
+summary(cocktails)
+
+#The charts shows the numbers of drinks with alcohol and non- alcohol. 
+
+platform = my_data %>% group_by(alcoholic) %>% summarise(Count = n())
+
+p1 = ggplot(aes(x = alcoholic , y = Count , fill=Count) , data=platform) +
+  geom_bar(colour='black',stat='identity') +
+  theme_bw()+
+  theme(axis.text.x = element_text(angle=45,hjust=1) , 
+        plot.title = element_text(hjust=0.5))+  ## title center
+  ggtitle('Platform Count')+
+  scale_fill_distiller(palette = 'RdYlBu') +
+  ylab('Count')
+p1
+```
+
+#The chart shows the number of glasses have been used.
+
+```{r}
+
+platform = my_data %>% group_by(glass) %>% summarise(Count = n())
+
+p1 = ggplot(aes(x = glass , y = Count , fill=Count) , data=platform) +
+  geom_bar(colour='black',stat='identity') +
+  theme_bw()+
+  theme(axis.text.x = element_text(angle=45,hjust=1) , 
+        plot.title = element_text(hjust=0.5))+  ## title center
+  ggtitle('Platform Count')+
+  scale_fill_distiller(palette = 'RdYlBu') +
+  ylab('Count')
+p1
+
+```
+
+# The chart shows the number of cocktails and other beverages.
+
+```{r}
+platform = my_data %>% group_by(category) %>% summarise(Count = n())
+
+p1 = ggplot(aes(x = category , y = Count , fill=Count) , data=platform) +
+  geom_bar(colour='black',stat='identity') +
+  theme_bw()+
+  theme(axis.text.x = element_text(angle=45,hjust=1) , 
+        plot.title = element_text(hjust=0.5))+  ## title center
+  ggtitle('Platform Count')+
+  scale_fill_distiller(palette = 'RdYlBu') +
+  ylab('Count')
+p1
+```
+
+# The charts shows the number of the measurement of alcohol requires in the cocktails. 
+
+```{r}
+platform = my_data %>% group_by(measure) %>% summarise(Count = n())
+
+p1 = ggplot(aes(x = measure , y = Count , fill=Count) , data=platform) +
+  geom_bar(colour='black',stat='identity') +
+  theme_bw()+
+  theme(axis.text.x = element_text(angle=45,hjust=1) , 
+        plot.title = element_text(hjust=0.5))+  ## title center
+  ggtitle('Platform Count')+
+  scale_fill_distiller(palette = 'RdYlBu') +
+  ylab('Count')
+p1
+```
+
+
+```{r}
+platform = my_data %>% group_by(drink) %>% summarise(Count = n())
+platform
+p1 = ggplot(aes(x = drink , y = Count , fill=Count) , data=platform) +
+  geom_bar(colour='black',stat='identity') +
+  theme_bw()+
+  theme(axis.text.x = element_text(angle=45,hjust=1) , 
+        plot.title = element_text(hjust=0.5))+  ## title center
+  ggtitle('Platform Count')+
+  scale_fill_distiller(palette = 'RdYlBu') +
+  ylab('Count')
+p1
+
+```
+
+## Data Modelling
+
+Here we will partition the data into training and testing. The training set is 80 % and the testing set is 20 % of the total sample size.
+
+```{r}
+set.seed(123)
+ind = sample(2, nrow(my_data), replace = T, prob = c(0.8,02))
+train= my_data[ind==2,]
+test= my_data[ind==1,]
+
+```
+
+#Decision tree
+
+The results from the decision tree shows that the type of drink was the best predictor of whether a drink is alcoholic is the type of drink. 
+
+```{r}
+dtree=rpart(alcoholic~.,data=train,method="class")
+
+plot(dtree)
+
+text(dtree)
+
+summary(dtree)
+
+printcp(dtree)
+
+plotcp(dtree)
+
+printcp(dtree)
+
+summary(dtree)
+
+pred= predict(dtree, test)
+predictions <- predict(dtree, test)
+table(predictions)
+pred=round(predictions[0:593,2],0)
+
+test1 <- test %>%
+      mutate(alcoholic = ifelse(alcoholic == "Alcoholic",1,0))
+test1=as.numeric(as.factor(test$alcoholic))-1
+
+confusionMatrix(as.factor(pred), as.factor(test1))
+#confusionMatrix(pred, as.factor(test$alcoholic))
+#pred
+
+```
+
+#randomForest
+
+```{r}
+model = randomForest(alcoholic~., data = train)
+#table(my_data$alcoholic)
+
+#rf_default <- train(alcoholic~., 
+                    #data=train, 
+                   # method='rf', 
+                   # metric='Accuracy'
+                   # )
+#print(rf_default)
+pred= predict(model, test)
+predictions <- predict(dtree, test)
+table(predictions)
+pred=round(predictions[0:593,2],0)
+
+# summarize results
+
+test1 <- test %>%
+      mutate(alcoholic = ifelse(alcoholic == "Alcoholic",1,0))
+test1=as.numeric(as.factor(test$alcoholic))-1
+
+confusionMatrix(as.factor(pred), as.factor(test1))
+varImp(model)
+
+
+```
+
+#**Findings & Conclusion**
+
+The decision tree model produced an accuracy of 92.07 %. The sensitivity score was obtained to be 98.06 % and the specificity score was obtained 51.95 %. The decision tree shows that the combination of glass, cocktails and ingredient were the best combination that can be used to predict whether the cocktails is alcoholic or not.
+The random forest model produced an accuracy of 92.07 %. The sensitivity score was obtained to be 98.06 % and the specificity score was obtained 51.95 %. The model showed that best predictor of alcoholic cocktails is the type of glass.
+
+
+
+#**Recommendations**
+
+We have obtained from the models that we can use factors such as the ingredient and type of glass to predict whether a cocktail is an alcoholic or not. Therefore, we don't need to taste the drink to determine whether it is alcoholic.Both decision tree and random forest has produced an accuracy of 92.07 %. However, one of the limitation is the type of data. The data had variables that had many factors. In the future, we can use a tidy data and also we can increase the variables to improve the quality of the data.
+
+
